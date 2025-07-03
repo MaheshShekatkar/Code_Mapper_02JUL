@@ -1,0 +1,90 @@
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.env
+.venv/
+venv/
+ENV/
+env/
+codeMapper/
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs and temp
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Output and intermediate data
+/data/
+outputs/
+logs/
+
+# Coverage and test artifacts
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# FastAPI & Uvicorn
+*.sqlite3
+instance/
+*.db
+
+# LLM & LangGraph
+.cache/
+openai_api.log
+langchain.yaml
+.graph_cache/
+
+# Streamlit
+.streamlit/
+*.streamlit/
+
+# Repos and cache directories
+repos/
+cache/
+lib/
+
+# React frontend (Node)
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/.env.local
+
+# Docker
+*.tar
+docker-compose.override.yml
+.dockerignore
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Zip/artifacts
+*.zip
+*.tar.gz
+*.egg
+*.whl
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets
+secrets.json
+*.key
+*.pem

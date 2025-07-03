@@ -1,0 +1,16 @@
+langchain
+langchain-community
+langchain-core
+langchain-openai
+langchain-text-splitters
+langgraph
+python-dotenv
+streamlit
+openai
+SQLAlchemy
+langgraph[checkpoint]
+fastapi
+networkx
+neo4j
+pyvis
+uvicorn
