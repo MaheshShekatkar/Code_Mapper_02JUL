@@ -1,64 +1,98 @@
 import json
-def get_call_extraction_prompt(code: str) -> str:
+def get_call_extraction_prompt(service_name: str, blocks: list) -> str:
+    """
+    Builds a prompt to extract outbound service calls from structured code blocks.
+
+    Each block contains:
+    - file: path to the source file
+    - class: class name (optional)
+    - method: method name
+    - code: code snippet
+    """
+
+    code_section = "\n\n".join([
+        f"""### File: {block.get("file")}
+Class: {block.get("class") or "None"}
+Method: {block["method"]}
+
+```python
+{block["code"]}
+```"""
+        for block in blocks
+    ])
+
     return f"""
-You are a code analyzer that extracts **outbound service calls** from source code.
+You are analyzing microservice `{service_name}` to detect **outbound service calls**.
 
-Your job is to identify service-to-service communication patterns. The types of communication include:
+## Goal:
+For each function below, identify if it contains a call to another service (HTTP, Kafka, gRPC, RabbitMQ, etc).
 
-- HTTP calls (e.g., `requests.get(url)`, `axios.post(url)`)
-- Kafka producers (e.g., `producer.send(topic, data)`)
-- gRPC client invocations (e.g., `stub.MyMethod(request)`)
-- RabbitMQ publishing (e.g., `channel.basic_publish(...)`)
-- Database calls (e.g., `cursor.execute("SELECT ...")`, `engine.execute(...)`, JDBC queries)
+## Types of calls:
+- HTTP: requests.post, axios, fetch, WebClient, RestTemplate, etc.
+- Kafka: producer.send, kafkaTemplate.send
+- gRPC: stub.callXYZ(), grpcChannel.invoke
+- RabbitMQ: basicPublish, template.convertAndSend
 
----
-
-### Output Format:
-Respond only in **JSON array** format as shown below:
-
-```json
+## Respond in JSON format like and do not include json keyword in the beginning of the json:
 [
   {{
-    "type": "http" | "kafka" | "grpc" | "RabbitMQ" | "database",
-    "target": "<destination, topic, service name, URL, or database name>",
-    "details": "<method, endpoint, topic name, or SQL query>"
-  }}
+    "file": "service.py",
+    "class": "OrderHandler",
+    "method": "submit_order",
+    "type": "http" | "kafka" | "grpc" | "rabbitmq",
+    "target": "<service or topic or host>",
+    "details": "<endpoint or method or topic name>"
+  }},
+  ...
 ]
 
-CODE:
-{code}
+## Code Blocks:
+{code_section}
 """
 
 import json
 
 def get_inferencing_prompt(from_service: str, call_data: dict, available_services: list) -> str:
+    known_service_lines = "\n".join(
+        f"- {service}: {', '.join(files[:5])}"  # show up to 5 files per service for brevity
+        for service, files in available_services.items()
+    )
     return f"""
-You are analyzing microservice connections.
+    You are a code analysis expert helping to infer **microservice dependencies**.
 
-## Goal:
-Given a single outbound call made by the service `{from_service}`, your task is to **identify which known service** (from the list) it is calling.
+    ## Goal:
+    Given a detailed outbound call made by the service `{from_service}`, identify which known service (from the list below) is being called.
 
-## KNOWN SERVICES:
-{', '.join(available_services)}
+    ## KNOWN SERVICES AND FILES:
+    {known_service_lines}
 
-## OUTBOUND CALL DATA:
-{json.dumps(call_data, indent=2)}
+    ## Known Services:
+    {json.dumps(known_service_lines, indent=2)}
 
-## Instructions:
-- Use `target_guess` and `via` to infer the destination service.
-- Match to one of the known services above.
-- Do NOT guess a service not in the list.
-- NEVER set the `to` field to `{from_service}` (the source itself).
-- Set the `type` as provided.
-- Set `via` as-is from input.
+    ## Call Metadata:
+    - **Source Service**: {from_service}
+    - **File**: {call_data.get("file", "unknown")}
+    - **Class**: {call_data.get("class", "unknown")}
+    - **Method**: {call_data.get("method", "unknown")}
+    - **Call Type**: {call_data.get("type")}
+    - **Target Guess**: {call_data.get("target")}
+    - **Via (Topic/Endpoint)**: {call_data.get("via")}
 
-## Respond strictly in this JSON format:
-[
-  {{
-    "from": "{from_service}",
-    "to": "<matched service from the list above>",
-    "type": "{call_data.get('type')}",
-    "via": "{call_data.get('via')}"
-  }}
-]
-"""
+    ## Instructions:
+    - Match the `target_guess` or `via` to the correct known service.
+    - Use service name, topic, endpoint path, or naming similarity.
+    - If no match is clear, pick `"unknown"` as destination.
+    - DO NOT map the call to the same service (`{from_service}`).
+    - Output should include source class + method for better traceability.
+    - Do not include json keyword in the beginning of the json output 
+
+    ## Output format (JSON only):
+    [
+      {{
+        "from": "{from_service}:{call_data.get('class')}#{call_data.get('method')}",
+        "to": "<matched service from list above>",
+        "type": "{call_data.get('type')}",
+        "via": "{call_data.get('via')}"
+      }}
+    ]
+    """
