@@ -1,46 +1,39 @@
+# backend/langgraph_engine/nodes/call_detector.py
+
 import json
-from backend.services.prompt_templates import get_call_extraction_prompt,get_call_extraction_prompt_from_metadata
+from backend.services.prompt_templates import get_call_extraction_prompt
+from backend.services.metadata_extractor import extract_metadata_from_repos
 from backend.langgraph_engine.config import get_chat_client
 
 llm = get_chat_client()
 
 def detect_calls(state):
+    """
+    Extract outbound calls from parsed metadata (not plain code blobs).
+    """
     repo_data = state.get("repos", {})
-    outbound_calls = []
+    all_calls = []
 
-    for repo_name, files in repo_data.items():
-        merged_code = "\n".join(files.values())[:16000]
+    metadata_by_service = extract_metadata_from_repos(repo_data)
 
-        # Step 1: Extract metadata (methods likely to make outbound calls)
-        meta_prompt = get_call_extraction_prompt_from_metadata(merged_code, service_name=repo_name)
-        meta_result = llm.invoke(meta_prompt)
+    for repo_name, entries in metadata_by_service.items():
+        for entry in entries:
+            prompt = get_call_extraction_prompt(entry["code"])
+            result = llm.invoke(prompt)
+            try:
+                extracted = json.loads(result.content)
+                for item in extracted:
+                    all_calls.append({
+                        "source": repo_name,
+                        "class": entry.get("class"),
+                        "method": entry.get("method"),
+                        "type": item["type"],
+                        "target_guess": item["target"],
+                        "via": item["details"],
+                        "file": entry["file"]
+                    })
+            except Exception as e:
+                print(f"[detect_calls] Error parsing LLM output for {repo_name}: {e}")
 
-        try:
-            metadata = json.loads(meta_result.content)
-        except Exception as e:
-            print(f"[detect_calls] Metadata extraction failed for {repo_name}: {e}")
-            continue
-
-        if not metadata:
-            continue
-
-        # Step 2: Pass metadata in batch
-        call_prompt = get_call_extraction_prompt(repo_name, metadata)
-        call_result = llm.invoke(call_prompt)
-
-        try:
-            extracted = json.loads(call_result.content)
-            for call in extracted:
-                outbound_calls.append({
-                    "source": repo_name,
-                    "type": call["type"],
-                    "target_guess": call["target"],
-                    "via": call["details"],
-                    "class": call["class"],
-                    "method": call["method"]
-                })
-        except Exception as e:
-            print(f"[detect_calls] Call parsing failed for {repo_name}: {e}")
-
-    state["calls"] = outbound_calls
+    state["calls"] = all_calls
     return state

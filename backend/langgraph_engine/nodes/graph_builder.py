@@ -1,24 +1,50 @@
-import networkx as nx
-import json
+# backend/langgraph_engine/nodes/graph_builder.py
 
 def build_graph(state):
-    connections = state.get("graph_data", {})
-    #print(connections)
-    G = nx.DiGraph()
+    inferred = state.get("inferred", [])
+    nodes = {}
+    links = []
 
-    # Add nodes and edges with attributes
-    for conn in connections:
-        from_svc = conn.get("from")
-        to_svc = conn.get("to")
-        call_type = conn.get("type")
-        via = conn.get("via")
+    for conn in inferred:
+        source = conn["from"]
+        target = conn["to"]
 
-        G.add_node(from_svc, type="service")
-        G.add_node(to_svc, type="service")
-        G.add_edge(from_svc, to_svc, type=call_type, via=via)
+        # Add source node
+        if source not in nodes:
+            nodes[source] = {
+                "id": source,
+                "label": source,
+                "type": "service"
+            }
 
-    # Save the graph for downstream use
-    state["graph_obj"] = G
-    state["graph_json"] = nx.readwrite.json_graph.node_link_data(G)
-    print(state["graph_json"] )
+        # Add target node
+        if target not in nodes:
+            nodes[target] = {
+                "id": target,
+                "label": target,
+                "type": "service"
+            }
+
+        # Add edge with metadata
+        links.append({
+            "source": source,
+            "target": target,
+            "label": conn.get("type", "unknown"),
+            "via": conn.get("via", ""),
+            "class": conn.get("source_class"),
+            "method": conn.get("source_method"),
+            "file": conn.get("source_file"),
+            "confidence": conn.get("confidence", 0.0)
+        })
+
+    graph_json = {
+        "directed": True,
+        "multigraph": False,
+        "graph": {},
+        "nodes": list(nodes.values()),
+        "links": links
+    }
+
+    state["graph_json"] = graph_json
+    state["connections"] = inferred  # optional for UI use
     return state
