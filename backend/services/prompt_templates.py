@@ -1,56 +1,40 @@
 import json
-def get_call_extraction_prompt(service_name: str, blocks: list) -> str:
-    """
-    Builds a prompt to extract outbound service calls from structured code blocks.
-
-    Each block contains:
-    - file: path to the source file
-    - class: class name (optional)
-    - method: method name
-    - code: code snippet
-    """
-
-    code_section = "\n\n".join([
-        f"""### File: {block.get("file")}
-Class: {block.get("class") or "None"}
-Method: {block["method"]}
-
-```python
-{block["code"]}
-```"""
-        for block in blocks
-    ])
+def get_call_extraction_prompt(service_name: str, metadata: list[dict]) -> str:
+    formatted_blocks = "\n\n".join(
+        f"""### CLASS: {item["class"]}
+### METHOD: {item["method"]}
+{item["code"]}"""
+        for item in metadata
+    )
 
     return f"""
-You are analyzing microservice `{service_name}` to detect **outbound service calls**.
+You are analyzing outbound service calls made by the microservice `{service_name}`.
 
-## Goal:
-For each function below, identify if it contains a call to another service (HTTP, Kafka, gRPC, RabbitMQ, etc).
+## Instructions:
+For each method block, extract any **outbound call** made to other services.
+Do not add json keyword in the beginning of json output 
 
-## Types of calls:
-- HTTP: requests.post, axios, fetch, WebClient, RestTemplate, etc.
-- Kafka: producer.send, kafkaTemplate.send
-- gRPC: stub.callXYZ(), grpcChannel.invoke
-- RabbitMQ: basicPublish, template.convertAndSend
+## Supported types:
+- `http`: HTTP/REST calls (e.g., HttpClient, RestTemplate, axios)
+- `kafka`: Kafka producer calls (e.g., producer.send)
+- `grpc`: gRPC client calls (e.g., stub.call)
+- `rabbitmq`: RabbitMQ publish/send
 
-## Respond in JSON format like and do not include json keyword in the beginning of the json:
+## Respond in JSON:
 [
   {{
-    "file": "service.py",
-    "class": "OrderHandler",
-    "method": "submit_order",
+    "class": "<class name>",
+    "method": "<method name>",
     "type": "http" | "kafka" | "grpc" | "rabbitmq",
-    "target": "<service or topic or host>",
-    "details": "<endpoint or method or topic name>"
+    "target": "<host, topic, or address>",
+    "details": "<method or endpoint called>"
   }},
   ...
 ]
 
-## Code Blocks:
-{code_section}
+## CODE SNIPPETS:
+{formatted_blocks}
 """
-
-import json
 
 def get_inferencing_prompt(from_service: str, call_data: dict, available_services: list) -> str:
     known_service_lines = "\n".join(
@@ -96,3 +80,33 @@ def get_inferencing_prompt(from_service: str, call_data: dict, available_service
       }}
     ]
     """
+
+def get_call_extraction_prompt_from_metadata(code: str, service_name: str) -> str:
+    return f"""
+You are analyzing Java or C# source code from the service `{service_name}`.
+
+Your task is to extract **metadata** about the code structure.
+
+## For each method, return:
+- `class`: the class name
+- `method`: the method name
+- `code`: the method body or surrounding 8–12 lines
+
+Only include methods that:
+- Appear to contain outbound service calls (e.g., HTTP, Kafka, gRPC, RabbitMQ)
+- Include keywords like: `HttpClient`, `RestTemplate`, `post`, `get`, `send`, `publish`, `exchange`, `stub`, etc.
+- Do not add json keyword in the beginning of json output  
+
+## Respond in JSON:
+[
+  {{
+    "class": "<class name>",
+    "method": "<method name>",
+    "code": "<code snippet>"
+  }},
+  ...
+]
+
+## CODE:
+{code}
+"""
