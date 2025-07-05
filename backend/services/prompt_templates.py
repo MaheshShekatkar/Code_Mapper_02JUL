@@ -9,6 +9,7 @@ Your job is to identify service-to-service communication patterns. The types of 
 - Kafka producers (e.g., `producer.send(topic, data)`)
 - gRPC client invocations (e.g., `stub.MyMethod(request)`)
 - RabbitMQ publishing (e.g., `channel.basic_publish(...)`)
+- Database calls (e.g., `cursor.execute("SELECT ...")`, `engine.execute(...)`, JDBC queries)
 
 ---
 
@@ -18,9 +19,9 @@ Respond only in **JSON array** format as shown below:
 ```json
 [
   {{
-    "type": "http" | "kafka" | "grpc" | "RabbitMQ",
-    "target": "<destination, topic, service name, or URL>",
-    "details": "<method, endpoint, or topic name>"
+    "type": "http" | "kafka" | "grpc" | "RabbitMQ" | "database",
+    "target": "<destination, topic, service name, URL, or database name>",
+    "details": "<method, endpoint, topic name, or SQL query>"
   }}
 ]
 

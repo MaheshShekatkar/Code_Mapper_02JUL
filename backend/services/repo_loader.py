@@ -28,29 +28,25 @@ def clone_repo(name, url):
         return None
     return repo_path
 
-def read_code_files(repo):
-    name, path = repo["name"], repo["path"]
+def read_code_files(repo_path: str) -> dict:
+    """
+    Recursively reads all .py, .java, .ts, etc. files from the repo and returns a dict:
+    { filename: file_content }
+    """
+    file_map = {}
+    for root, _, files in os.walk(repo_path):
+        for file in files:
+            if file.endswith(SUPPORTED_EXTENSIONS):
+                file_path = os.path.join(root, file)
+                rel_path = os.path.relpath(file_path, repo_path)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        file_map[rel_path] = content
+                except Exception as e:
+                    print(f"[WARN] Could not read {file_path}: {e}")
+    return file_map
 
-    # If it's a URL, clone it
-    if is_git_url(path):
-        path = clone_repo(name, path)
-        if not path:
-            return name, []
-
-    code_blobs = []
-    files = glob.glob(os.path.join(path, "**", "*.*"), recursive=True)
-
-    for file in files:
-        if file.endswith(SUPPORTED_EXTENSIONS):
-            try:
-                with open(file, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    if len(content.strip()) > 20:
-                        code_blobs.append(content[:16000])
-            except Exception as e:
-                print(f"[ERROR] Reading {file}: {e}")
-    print(name,code_blobs)
-    return name, code_blobs
 
 def load_repositories(repo_config):
     result = {}
