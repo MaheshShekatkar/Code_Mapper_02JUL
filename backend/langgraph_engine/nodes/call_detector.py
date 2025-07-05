@@ -2,38 +2,54 @@ import json
 import ast
 from backend.services.prompt_templates import get_call_extraction_prompt
 from backend.langgraph_engine.config import get_chat_client
+from backend.langgraph_engine.tree_sitter_support.parser_factory import PARSER_MAP
 
 llm = get_chat_client()
 
+def extract_code_context(file_path: str, content: str) -> list:
+    ext = os.path.splitext(file_path)[1].lower()
+    parser_tuple = PARSER_MAP.get(ext)
+    if not parser_tuple:
+        return []  # Unsupported language
 
-def extract_code_context(file_content: str) -> list:
-    """
-    Extracts classes/methods and outbound call lines (e.g., HTTP/gRPC/Kafka) with context.
-    Returns a list of dictionaries: [{class, method, code_snippet}, ...]
-    """
-    results = []
-    try:
-        tree = ast.parse(file_content)
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                lines = ast.get_source_segment(file_content, node).splitlines()
-                if any("http" in line.lower() or "grpc" in line.lower() or "send" in line.lower() for line in lines):
-                    class_name = None
-                    parent = getattr(node, 'parent', None)
-                    while parent:
-                        if isinstance(parent, ast.ClassDef):
-                            class_name = parent.name
-                            break
-                        parent = getattr(parent, 'parent', None)
+    parser, _ = parser_tuple
+    tree = parser.parse(bytes(content, 'utf8'))
+    root = tree.root_node
+    contexts = []
 
-                    results.append({
-                        "class": class_name,
-                        "method": node.name,
-                        "code": "\n".join(lines[:20])  # limit context
-                    })
-    except Exception as e:
-        print(f"[ERROR] AST parsing failed: {e}")
-    return results
+    def traverse(node, current_class=None, current_method=None):
+        # Class detection
+        if node.type == 'class_declaration':
+            name_node = node.child_by_field_name('name')
+            if name_node:
+                current_class = content[name_node.start_byte:name_node.end_byte]
+
+        # Method detection
+        if node.type in ('method_declaration', 'function_definition'):
+            name_node = node.child_by_field_name('name')
+            if name_node:
+                current_method = content[name_node.start_byte:name_node.end_byte]
+
+        # Method call detection
+        if node.type == 'method_invocation' and current_method:
+            snippet = content[node.start_byte:node.end_byte]
+            if any(key in snippet.lower() for key in ['http', 'send', 'post', 'fetch', 'produce']):
+                start_line = content.count('\n', 0, node.start_byte)
+                lines = content.splitlines()
+                block_start = max(0, start_line - 5)
+                block = '\n'.join(lines[block_start:block_start + 10])
+                contexts.append({
+                    'file': file_path,
+                    'class': current_class,
+                    'method': current_method,
+                    'code': block
+                })
+
+        for child in node.children:
+            traverse(child, current_class, current_method)
+
+    traverse(root)
+    return contexts
 
 
 def detect_calls(state):
