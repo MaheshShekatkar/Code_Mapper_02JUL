@@ -1,40 +1,50 @@
 import json
-def get_call_extraction_prompt(service_name: str, metadata: list[dict]) -> str:
+import json
+
+def get_call_extraction_prompt(files: dict) -> str:
+    langauge= "Java"
     formatted_blocks = "\n\n".join(
-        f"""### CLASS: {item["class"]}
-### METHOD: {item["method"]}
-{item["code"]}"""
-        for item in metadata
+        f"""### SERVICE: {service}
+{code}""" 
+        for service, code_list in files.items()
+        for code in code_list
     )
 
     return f"""
-You are analyzing outbound service calls made by the microservice `{service_name}`.
+You are analyzing outbound and inbound service calls made by the microservice.
 
-## Instructions:
-For each method block, extract any **outbound call** made to other services.
-Do not add json keyword in the beginning of json output 
+## Follow these strict rules:
+- Service is in {langauge} language
+- For each file, extract any **inbound call** and **outbound call** made to other services.
+- Always include `class`, `method`, and `type`.
+- Always include message queue name/endpoint/method name in the `details` attribute.
+- Do NOT include any markdown formatting like triple backticks or "json".
+- No extra commentary or explanation.
+- Output must be a valid JSON array.
+- All outputs must follow the exact format shown below.
 
 ## Supported types:
-- `http`: HTTP/REST calls (e.g., HttpClient, RestTemplate, axios)
-- `kafka`: Kafka producer calls (e.g., producer.send)
-- `grpc`: gRPC client calls (e.g., stub.call)
-- `rabbitmq`: RabbitMQ publish/send
+- "http": HTTP/REST calls (e.g., HttpClient, RestTemplate, axios)
+- "kafka": Kafka producer calls (e.g., producer.send)
+- "grpc": gRPC client calls (e.g., stub.call)
+- "rabbitmq": RabbitMQ calls (e.g., convertAndSend)
+- "database": SQL/NoSQL DB access (JDBC, JPA, Hibernate, MongoTemplate)
 
-## Respond in JSON:
+## Output format:
 [
   {{
     "class": "<class name>",
     "method": "<method name>",
-    "type": "http" | "kafka" | "grpc" | "rabbitmq",
+    "type": "http" | "kafka" | "grpc" | "rabbitmq" | "database",
     "target": "<host, topic, or address>",
     "details": "<method or endpoint called>"
-  }},
-  ...
+  }}
 ]
 
-## CODE SNIPPETS:
+## Code to analyze:
 {formatted_blocks}
 """
+
 
 def get_inferencing_prompt(from_service: str, call_data: dict, available_services: list) -> str:
     known_service_lines = "\n".join(
