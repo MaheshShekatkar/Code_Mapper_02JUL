@@ -46,17 +46,11 @@ You are analyzing outbound and inbound service calls made by the microservice.
 """
 
 def get_inferencing_prompt(from_service: str, call_data: list, available_services: list) -> str:
-    """
-    from_service: name of the source microservice making the outbound call
-    call_data: list of dicts with outbound call info (type, target_guess, class, method, etc.)
-    available_services: list of known services to match against
-    """
-    
     return f"""
 You are a code analysis expert helping to infer microservice dependencies.
 
 ## Goal:
-Given a detailed outbound call made by the service `{from_service}`, identify which known service (from the list below) it is calling.
+Given a list of outbound calls made by the service `{from_service}`, determine which known service is being called for each one.
 
 ## Known Services:
 {json.dumps(available_services, indent=2)}
@@ -65,26 +59,35 @@ Given a detailed outbound call made by the service `{from_service}`, identify wh
 {json.dumps(call_data, indent=2)}
 
 ## Instructions:
-- Match the `target_guess` or `via` field to the most appropriate service from the list of known services.
-- Use available clues: service name, topic name, endpoint path, or naming similarity.
-- If no confident match is possible, use `"unknown"` as the destination.
-- Do **not** map a call to the same service (`{from_service}`).
-- Output must include `from` in format: `<service>: <class>#<method>` for traceability.
-- Do **not** include "json" or code fences in the output.
-- Response must be valid JSON array and within 350 tokens.
+- Analyze **each call in the list** and return a corresponding object in the output array.
+- Match the `target_guess` or `via` fields to the best known service.
+- Match by:
+  - Service name
+  - Endpoint path
+  - Topic name
+  - Partial string similarity (e.g., "inventory" matches "InventoryService")
+- If no match is reasonably clear, mark the destination as `"unknown"`.
+- Do **not** map a call back to `{from_service}`.
+- Always include class and method in `from` field as: `<service>: <class>#<method>`
+- Response must be a **valid JSON array**, without `json` keyword or markdown.
+- Return at most 350 tokens.
 
-## Output format (no markdown-style code fences):
-
+## Output format (showing multiple examples):
 [
   {{
-    "from": "{from_service}: <class>#<method>",
-    "to": "<best matching service from list above>",
-    "type": "<http|grpc|kafka|rabbitmq>",
-    "via": "<endpoint or topic>"
+    "from": "OrderService: OrderController#createOrder",
+    "to": "InventoryService",
+    "type": "http",
+    "via": "/inventory/reserve"
+  }},
+  {{
+    "from": "OrderService: KafkaProducer#sendMessage",
+    "to": "NotificationService",
+    "type": "kafka",
+    "via": "notification-topic"
   }}
 ]
 """
-
 
 def get_call_extraction_prompt_from_metadata(code: str, service_name: str) -> str:
     return f"""
