@@ -16,24 +16,25 @@ def detect_calls(state):
 
     metadata_by_service = extract_metadata_from_repos(repo_data)
 
-    for repo_name, entries in metadata_by_service.items():
-        for entry in entries:
-            prompt = get_call_extraction_prompt(entry["code"])
-            result = llm.invoke(prompt)
-            try:
-                extracted = json.loads(result.content)
-                for item in extracted:
-                    all_calls.append({
-                        "source": repo_name,
-                        "class": entry.get("class"),
-                        "method": entry.get("method"),
-                        "type": item["type"],
-                        "target_guess": item["target"],
-                        "via": item["details"],
-                        "file": entry["file"]
-                    })
-            except Exception as e:
-                print(f"[detect_calls] Error parsing LLM output for {repo_name}: {e}")
+    for metadata in metadata_by_service:
+        for repo_name, entries in metadata.items():
+            for entry in entries:
+                prompt = get_call_extraction_prompt(entry["code"])
+                result = llm.invoke(prompt)
+                try:
+                    extracted = json.loads(result.content)
+                    for item in extracted:
+                        all_calls.append({
+                            "source": repo_name,
+                            "class": entry.get("class"),
+                            "method": entry.get("method"),
+                            "type": item["type"],
+                            "target_guess": item["target"],
+                            "via": item["details"],
+                            "file": entry["file"]
+                        })
+                except Exception as e:
+                    print(f"[detect_calls] Error parsing LLM output for {repo_name}: {e}")
 
-    state["calls"] = all_calls
+        state["calls"] = all_calls
     return state

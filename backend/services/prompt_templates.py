@@ -110,3 +110,28 @@ Only include methods that:
 ## CODE:
 {code}
 """
+
+def get_infra_extraction_prompt(code_snippet: str) -> str:
+    return f"""
+You are analyzing a code/config file. Extract any **infrastructure dependencies** like:
+
+- Databases (e.g., MySQL, PostgreSQL, MongoDB)
+- Caches (e.g., Redis)
+- Message brokers (e.g., Kafka, RabbitMQ)
+- Cloud storage (e.g., S3, Azure Blob)
+
+Return JSON like:
+[
+  {{
+    "type": "infrastructure",
+    "subtype": "database" | "cache" | "broker" | "cloud_service",
+    "name": "<infra name>",
+    "via": "<connection string or host>",
+    "used_by": "<current service>"
+  }}
+]
+
+Code:
+{code_snippet}
+"""
+
