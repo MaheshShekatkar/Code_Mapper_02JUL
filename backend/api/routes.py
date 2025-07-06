@@ -13,7 +13,8 @@ async def run_dependency_scan(request: Request):
     return {
         "graph": result.get("graph_json"),
         "connections": result.get("connections"),
-        "drift": result.get("drift_report")
+        "drift": result.get("drift_report"),
+        "infra": result.get("infra_dependencies") 
     }
 
 @router.get("/graph")
