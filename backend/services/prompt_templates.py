@@ -143,3 +143,45 @@ Code:
 {code_snippet}
 """
 
+def get_call_extraction_prompt_from_metadata(service_name: str, metadata: list[dict]) -> str:
+    formatted_blocks = "\n\n".join(
+        f"""### FILE: {item.get("file", "unknown")}
+### CLASS: {item.get("class", "unknown")}
+### METHOD: {item.get("method", "unknown")}
+{item["code"]}"""
+        for item in metadata
+    )
+
+    return f"""
+You are analyzing code to detect **outbound dependencies** in a microservice.
+
+The service name is: **{service_name}**
+
+Each block below shows a class method. Extract all outbound calls, such as:
+- HTTP calls (e.g., requests, RestTemplate, HttpClient)
+- Kafka or RabbitMQ publishing
+- gRPC stubs
+- Database calls (JDBC, repositories)
+
+## Instructions:
+- Analyze each block independently.
+- For **every outbound call**, return a separate object.
+- DO NOT merge multiple calls (e.g., to Kafka and DB) into one.
+- Each object must map a method → one target.
+
+## Respond in JSON format like:
+[
+  {{
+    "type": "http" | "kafka" | "grpc" | "database" | "rabbitmq",
+    "target": "<guess of the external system or service>",
+    "details": "<endpoint, topic, table, or connection string>",
+    "file": "<file name>",
+    "class": "<class name>",
+    "method": "<method name>"
+  }},
+  ...
+]
+
+## Code Blocks:
+{formatted_blocks}
+"""
