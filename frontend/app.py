@@ -47,3 +47,28 @@ if submitted:
             st.error("Scan failed: " + response.text)
     except Exception as e:
         st.error(f"Input error: {e}")
+
+# graph TD
+#     subgraph Services
+#         UserService
+#         OrderService
+#         InventoryService
+#     end
+
+#     subgraph Infrastructure
+#         PostgreSQL[(PostgreSQL DB)]
+#         RabbitMQ[(RabbitMQ)]
+#         Redis[(Redis Cache)]
+#         PaymentAPI[(Payment API)]
+#     end
+
+#     UserService --> PostgreSQL
+#     UserService --> Redis
+
+#     OrderService --> PostgreSQL
+#     OrderService --> RabbitMQ
+#     OrderService --> PaymentAPI
+
+#     InventoryService --> PostgreSQL
+#     InventoryService --> RabbitMQ
+#     InventoryService --> Redis
