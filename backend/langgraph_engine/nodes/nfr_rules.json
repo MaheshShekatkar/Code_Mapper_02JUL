@@ -1,0 +1,68 @@
+{
+  "security": {
+    "description": "Ensure secure communication and avoid unsafe patterns.",
+    "patterns": [
+      {
+        "regex": "ftp://|sftp://|smtp://|imap://|telnet",
+        "description": "Avoid using insecure protocols (FTP, SMTP, Telnet)."
+      },
+      {
+        "regex": "http://(?!localhost)",
+        "description": "Prefer HTTPS over plain HTTP for external communication."
+      }
+    ]
+  },
+  "observability": {
+    "description": "Ensure services are observable (logs, metrics, tracing).",
+    "patterns": [
+      {
+        "regex": "logger\\.(debug|info|warn|error)",
+        "description": "Ensure logs are present for debugging and monitoring."
+      },
+      {
+        "regex": "otel|opentelemetry|tracer|zipkin|jaeger",
+        "description": "Ensure distributed tracing is implemented."
+      }
+    ]
+  },
+  "modularity": {
+    "description": "Encourage loose coupling and modular services.",
+    "patterns": [
+      {
+        "regex": "requests\\.(get|post|put|delete)|RestTemplate|HttpClient",
+        "description": "Prefer async messaging over direct synchronous calls when possible."
+      }
+    ]
+  },
+  "maintainability": {
+    "description": "Ensure code is maintainable and well-structured.",
+    "patterns": [
+      {
+        "regex": "System\\.out\\.print|console\\.log",
+        "description": "Avoid raw prints/logs, use proper logging libraries."
+      },
+      {
+        "regex": "TODO|FIXME",
+        "description": "Track unresolved work or technical debt."
+      }
+    ]
+  },
+  "testability": {
+    "description": "Code should be easily testable.",
+    "patterns": [
+      {
+        "regex": "@Test|unittest|pytest",
+        "description": "Include unit tests in codebase."
+      }
+    ]
+  },
+  "portability": {
+    "description": "Code should be portable across platforms.",
+    "patterns": [
+      {
+        "regex": "os\\.getenv\\(|System\\.getenv\\(",
+        "description": "Avoid hardcoded paths, use environment variables."
+      }
+    ]
+  }
+}
